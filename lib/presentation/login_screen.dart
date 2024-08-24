@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:lamp_bot/presentation/flashlight.dart';
 
 class LoginScreen extends StatefulWidget {
   @override
@@ -11,6 +12,7 @@ class _LoginScreenState extends State<LoginScreen> {
     return Scaffold(
       appBar: AppBar(
         backgroundColor:  const Color(0xFF121212),
+        foregroundColor: Colors.white,
         title: Center(
           child: Row(
             children: [
@@ -96,6 +98,7 @@ class _LoginScreenState extends State<LoginScreen> {
               ElevatedButton(
                 onPressed: () {
                   // Next button logic
+                  Navigator.push(context, MaterialPageRoute(builder: (context)=>FlashlightScreen()));
                 },
                 style: ElevatedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
