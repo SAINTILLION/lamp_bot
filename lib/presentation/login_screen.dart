@@ -40,6 +40,11 @@ class _LoginScreenState extends State<LoginScreen> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
+              Image.asset(
+              'assets/images/lamp_bot.jpeg',
+              width: 150,
+              height: 150,
+            ),
              const  Text(
                 'Lamp Bot',
                 style: TextStyle(
@@ -77,24 +82,6 @@ class _LoginScreenState extends State<LoginScreen> {
                 style: TextStyle(color: Colors.white),
               ),
               const SizedBox(height: 32),
-              ElevatedButton(
-                onPressed: () {
-                  // Connect Bluetooth logic
-                },
-                style: ElevatedButton.styleFrom(
-        
-                  padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
-                ),
-                child: const Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.bluetooth),
-                    SizedBox(width: 8),
-                    Text('Connect Bluetooth'),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 16),
               ElevatedButton(
                 onPressed: () {
                   // Next button logic

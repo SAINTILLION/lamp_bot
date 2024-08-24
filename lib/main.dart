@@ -63,16 +63,6 @@ class MyHomePage extends StatelessWidget {
             ElevatedButton(
               onPressed: () {
                 // Sign up button logic
-              },
-              child:SizedBox(
-                width: MediaQuery.of(context).size.width * 0.6,
-                child: const Center(child: Text('sign up')),
-              )
-            ),
-            const SizedBox(height: 16),
-            ElevatedButton(
-              onPressed: () {
-                // Sign up button logic
                 Navigator.push(context, MaterialPageRoute(builder: (context)=>LoginScreen()));
               },
               child:SizedBox(
