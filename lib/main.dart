@@ -67,7 +67,16 @@ class MyHomePage extends StatelessWidget {
               },
               child:SizedBox(
                 width: MediaQuery.of(context).size.width * 0.6,
-                child: const Center(child: Text('Log In')),
+                child: const Center(
+                  child: Text(
+                    'Log In',
+                    style: TextStyle(
+                      color: Colors.black,
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  )
+                ),
               )
             ),
           ],

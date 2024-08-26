@@ -90,7 +90,14 @@ class _LoginScreenState extends State<LoginScreen> {
                 style: ElevatedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
                 ),
-                child: const Text('Next'),
+                child: const Text(
+                  'Next',
+                   style: TextStyle(
+                    color: Colors.black,
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                  ),
+                  ),
               ),
             ],
           ),

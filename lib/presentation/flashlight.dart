@@ -8,10 +8,12 @@ class FlashlightScreen extends StatefulWidget {
 }
 
 class _FlashlightScreenState extends State<FlashlightScreen> {
-  String state = "OFF";
+  bool isFlashlightOn = false; //This means the light is off
   @override
   Widget build(BuildContext context) {
-    String state = "OFF";
+    
+    Color background = Colors.black;
+    Color active_state = Colors.white;
     const String instruction = "tap to on-light";
     return Scaffold(
       appBar: AppBar(
@@ -27,20 +29,20 @@ class _FlashlightScreenState extends State<FlashlightScreen> {
                decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 border: Border.all(
-                  color: Colors.white, // Border color
+                  color:isFlashlightOn == false ? Colors.white : Colors.black,  // Border color
                   width: 2.0, // Border width
                 ),
               ),
-              child: const Icon(Icons.mic, size: 100,)
+              child: const Icon(Icons.mic, size: 50,)
             )
           ),
         ),
         automaticallyImplyLeading: false,
-        backgroundColor: Colors.black,
-        foregroundColor: Colors.white,
+        backgroundColor: isFlashlightOn == false ? Colors.black : Colors.white,
+        foregroundColor: isFlashlightOn == false ? Colors.white : Colors.black,
         
       ),
-      backgroundColor: Colors.black,
+      backgroundColor: isFlashlightOn == false ? Colors.black : Colors.white,
       body: Padding(
         padding: const EdgeInsets.all(32.0),
         child: Center(
@@ -49,16 +51,27 @@ class _FlashlightScreenState extends State<FlashlightScreen> {
             children: [
               // Flashlight icon
               IconButton(
-                icon: const Icon(Icons.flashlight_off_outlined, size: 300),
-                onPressed: () {},
+                icon: Icon(
+                  isFlashlightOn == false ? Icons.flashlight_off_outlined : Icons.flashlight_on, 
+                  color: Colors.blue,
+                  size: 300,
+                ),
+                onPressed: () {
+                  setState(() {
+                    isFlashlightOn = !isFlashlightOn;
+                    background = Colors.white;
+                    active_state = Colors.black;
+                  });
+                },
                 color: Colors.white,
               ),
               // Text indicating tap to on-light
-              const Text(
-                instruction,
+              Text(
+                isFlashlightOn == false ? "Tap to on-light" : "Tap to off-light",
                 style: TextStyle(
-                  color: Colors.white,
+                  color: isFlashlightOn == false ? Colors.white : Colors.black,
                   fontSize: 24,
+                  fontWeight: FontWeight.bold,
                 ),
               ),
             ],
