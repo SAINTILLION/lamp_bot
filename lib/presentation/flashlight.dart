@@ -42,7 +42,7 @@ class _FlashlightScreenState extends State<FlashlightScreen> {
              }); 
             },
             child: AvatarGlow(
-              glowColor: Colors.white,
+              glowColor: isFlashlightOn == false ? Colors.white : Colors.black,
               glowShape: BoxShape.circle,
               glowRadiusFactor: 3,
               animate: true,
