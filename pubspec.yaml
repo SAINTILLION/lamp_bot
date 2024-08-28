@@ -29,6 +29,8 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  speech_to_text: ^7.0.0
+  avatar_glow: ^3.0.1
 
 
   # The following adds the Cupertino Icons font to your application.
