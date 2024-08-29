@@ -1,5 +1,3 @@
-import 'dart:async';
-import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_blue/flutter_blue.dart';
 import 'package:avatar_glow/avatar_glow.dart';
@@ -16,8 +14,8 @@ class _FlashlightScreenState extends State<FlashlightScreen> {
   FlutterBlue flutterBlue = FlutterBlue.instance;
   BluetoothDevice? targetDevice;
   BluetoothCharacteristic? writeCharacteristic;
+
   bool isFlashlightOn = false;
-  bool isConnected = false;
   late stt.SpeechToText _speech;
   bool _isListening = false;
   bool isMicOn = false;
@@ -26,79 +24,73 @@ class _FlashlightScreenState extends State<FlashlightScreen> {
   void initState() {
     super.initState();
     _speech = stt.SpeechToText();
-    _scanAndConnect();
+    _initializeBluetooth();
   }
 
-  void _scanAndConnect() async {
-    flutterBlue.scanResults.listen((results) {
-      for (ScanResult result in results) {
-        if (result.device.name == "Lightbulb System") {
-          targetDevice = result.device;
+  void _initializeBluetooth() async {
+    // Start scanning
+    flutterBlue.startScan(timeout: Duration(seconds: 4));
+
+    // Listen to scan results
+    var subscription = flutterBlue.scanResults.listen((results) {
+      for (ScanResult r in results) {
+        if (r.device.name == "Bluetooth Lightbulb Systemm") {
+          //print('Found target device: ${r.device.name}');
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+          content: Text('Found target device: ${r.device.name}')
+        ),
+      );
+          targetDevice = r.device;
           _connectToDevice();
           break;
         }
       }
     });
-    flutterBlue.startScan(timeout: const Duration(seconds: 4));
+
+    // Stop scanning
+    flutterBlue.stopScan();
   }
 
   void _connectToDevice() async {
     if (targetDevice == null) return;
 
     await targetDevice!.connect();
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Connected to ${targetDevice!.name}')
-      ),
-    );
+     ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(' not Connected to ${targetDevice!.name}')
+        ),
+      );
 
     List<BluetoothService> services = await targetDevice!.discoverServices();
-    for (BluetoothService service in services) {
-      for (BluetoothCharacteristic characteristic in service.characteristics) {
+    services.forEach((service) {
+      service.characteristics.forEach((characteristic) {
         if (characteristic.properties.write) {
           writeCharacteristic = characteristic;
-          setState(() {
-            isConnected = true;
-          });
-          return;
+          ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(' not Connected to ${targetDevice!.name}')
+              ),
+            );
         }
-      }
+      });
+    });
+  }
+
+  void _sendCommand(String command) {
+    if (writeCharacteristic != null) {
+      List<int> bytes = command.codeUnits;
+      writeCharacteristic!.write(bytes);
+    } else {
+      
     }
   }
 
   void _toggleFlashlight() {
-    if (writeCharacteristic != null) {
-      setState(() {
-        isFlashlightOn = !isFlashlightOn;
-      });
-      writeCharacteristic!.write(utf8.encode(isFlashlightOn ? '1' : '0'));
-    }
-  }
-
-  void _listen() async {
-    if (!_isListening) {
-      bool available = await _speech.initialize(
-        onStatus: (status) => print('onStatus: $status'),
-        onError: (errorNotification) => print('onError: $errorNotification'),
-      );
-      if (available) {
-        setState(() => _isListening = true);
-        _speech.listen(
-          onResult: (result) {
-            if (result.finalResult) {
-              if (result.recognizedWords.toLowerCase().contains('on')) {
-                _toggleFlashlight();
-              } else if (result.recognizedWords.toLowerCase().contains('off')) {
-                _toggleFlashlight();
-              }
-            }
-          },
-        );
-      }
-    } else {
-      setState(() => _isListening = false);
-      _speech.stop();
-    }
+    setState(() {
+      isFlashlightOn = !isFlashlightOn;
+      _sendCommand(isFlashlightOn ? '1' : '0');
+    });
   }
 
   @override
@@ -110,12 +102,16 @@ class _FlashlightScreenState extends State<FlashlightScreen> {
         title: Align(
           alignment: Alignment.topRight,
           child: InkWell(
-            onTap: _listen,
+            onTap: () {
+              setState(() {
+                isMicOn = !isMicOn;
+              });
+            },
             child: AvatarGlow(
               glowColor: isFlashlightOn ? Colors.black : Colors.white,
               glowShape: BoxShape.circle,
               glowRadiusFactor: 3,
-              animate: _isListening,
+              animate: isMicOn,
               startDelay: Duration.zero,
               duration: const Duration(milliseconds: 2000),
               glowCount: 2,
@@ -128,9 +124,9 @@ class _FlashlightScreenState extends State<FlashlightScreen> {
                     width: 2.0,
                   ),
                 ),
-                child: const Icon(Icons.mic, size: 50),
+                child: const Icon(Icons.mic, size: 50,)
               ),
-            ),
+            )
           ),
         ),
         automaticallyImplyLeading: false,
@@ -146,17 +142,15 @@ class _FlashlightScreenState extends State<FlashlightScreen> {
             children: [
               IconButton(
                 icon: Icon(
-                  isFlashlightOn ? Icons.flashlight_on : Icons.flashlight_off_outlined,
+                  isFlashlightOn ? Icons.flashlight_on : Icons.flashlight_off_outlined, 
                   color: isFlashlightOn ? Colors.blue : Colors.white,
                   size: 300,
                 ),
-                onPressed: isConnected ? _toggleFlashlight : null,
+                onPressed: _toggleFlashlight,
                 color: Colors.white,
               ),
               Text(
-                isConnected
-                    ? (isFlashlightOn ? "Tap to off-light" : "Tap to on-light")
-                    : "Connecting to device...",
+                isFlashlightOn ? "Tap to off-light" : "Tap to on-light",
                 style: TextStyle(
                   color: isFlashlightOn ? Colors.black : Colors.white,
                   fontSize: 24,
