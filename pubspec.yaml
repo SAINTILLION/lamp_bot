@@ -31,7 +31,6 @@ dependencies:
     sdk: flutter
   speech_to_text: ^7.0.0
   avatar_glow: ^3.0.1
-  flutter_blue: ^0.8.0
   flutter_bluetooth_serial: ^0.4.0
 
 
