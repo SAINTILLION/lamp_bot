@@ -82,6 +82,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 style: TextStyle(color: Colors.white),
               ),
               const SizedBox(height: 32),
+              
               ElevatedButton(
                 onPressed: () {
                   // Next button logic
