@@ -2,6 +2,7 @@ import 'package:avatar_glow/avatar_glow.dart';
 import 'package:flutter/material.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
 import 'package:flutter_bluetooth_serial/flutter_bluetooth_serial.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'dart:convert';
 import 'dart:typed_data';
 
@@ -25,21 +26,56 @@ class _FlashlightScreenState extends State<FlashlightScreen> {
   void initState() {
     super.initState();
     _speech = stt.SpeechToText();
-    _connectToBluetooth();
+    _requestBluetoothPermissions(); // Request permissions at runtime
+  }
+
+  Future<void> _requestBluetoothPermissions() async {
+    // Requesting Bluetooth permissions
+    if (await Permission.bluetooth.isDenied) {
+      await Permission.bluetooth.request();
+    }
+
+    if (await Permission.bluetoothScan.isDenied) {
+      await Permission.bluetoothScan.request();
+    }
+
+    if (await Permission.bluetoothConnect.isDenied) {
+      await Permission.bluetoothConnect.request();
+    }
+
+    if (await Permission.location.isDenied) {
+      await Permission.location.request();
+    }
+
+    // After permissions are granted, attempt to connect to Bluetooth
+    if (await Permission.bluetooth.isGranted &&
+        await Permission.bluetoothScan.isGranted &&
+        await Permission.bluetoothConnect.isGranted &&
+        await Permission.location.isGranted) {
+      _connectToBluetooth();
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Bluetooth and Location permissions are required.'),
+        ),
+      );
+    }
   }
 
   Future<void> _connectToBluetooth() async {
     // Find the device to connect to
-    List<BluetoothDevice> devices = await FlutterBluetoothSerial.instance.getBondedDevices();
-    device = devices.firstWhere((d) => d.name == 'Lightbulb Systemm', orElse: () => devices.first);
+    List<BluetoothDevice> devices =
+        await FlutterBluetoothSerial.instance.getBondedDevices();
+    device = devices.firstWhere(
+        (d) => d.name == 'Lightbulb Systemm',
+        orElse: () => devices.first);
 
     if (device == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Device not found.'),
-        
-  ),
-);
+        const SnackBar(
+          content: Text('Device not found.'),
+        ),
+      );
       return;
     }
 
@@ -69,11 +105,42 @@ class _FlashlightScreenState extends State<FlashlightScreen> {
     }
   }
 
+  void _toggleFlashlight() {
+    setState(() {
+      isFlashlightOn = !isFlashlightOn;
+      _sendBluetoothMessage(isFlashlightOn ? '1' : '0');
+    });
+  }
+
+  void _handleMicTap() async {
+    setState(() {
+      isMicOn = !isMicOn;
+    });
+
+    if (isMicOn) {
+      bool available = await _speech.initialize();
+      if (available) {
+        _speech.listen(onResult: (result) {
+          if (result.recognizedWords.toLowerCase() == 'on') {
+            setState(() {
+              isFlashlightOn = true;
+              _sendBluetoothMessage('1');
+            });
+          } else if (result.recognizedWords.toLowerCase() == 'off') {
+            setState(() {
+              isFlashlightOn = false;
+              _sendBluetoothMessage('0');
+            });
+          }
+        });
+      }
+    } else {
+      _speech.stop();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    Color background = Colors.black;
-    Color active_state = Colors.white;
-    const String instruction = "tap to on-light";
     return Scaffold(
       appBar: AppBar(
         elevation: 0.0,
@@ -81,11 +148,7 @@ class _FlashlightScreenState extends State<FlashlightScreen> {
         title: Align(
           alignment: Alignment.topRight,
           child: InkWell(
-            onTap: () {
-              setState(() {
-                isMicOn = !isMicOn;
-              });
-            },
+            onTap: _handleMicTap,
             child: AvatarGlow(
               glowColor: isFlashlightOn == false ? Colors.white : Colors.black,
               glowShape: BoxShape.circle,
@@ -103,16 +166,22 @@ class _FlashlightScreenState extends State<FlashlightScreen> {
                     width: 2.0,
                   ),
                 ),
-                child: const Icon(Icons.mic, size: 50,),
+                child: const Icon(
+                  Icons.mic,
+                  size: 50,
+                ),
               ),
             ),
           ),
         ),
         automaticallyImplyLeading: false,
-        backgroundColor: isFlashlightOn == false ? Colors.black : Colors.white,
-        foregroundColor: isFlashlightOn == false ? Colors.white : Colors.black,
+        backgroundColor:
+            isFlashlightOn == false ? Colors.black : Colors.white,
+        foregroundColor:
+            isFlashlightOn == false ? Colors.white : Colors.black,
       ),
-      backgroundColor: isFlashlightOn == false ? Colors.black : Colors.white,
+      backgroundColor:
+          isFlashlightOn == false ? Colors.black : Colors.white,
       body: Padding(
         padding: const EdgeInsets.all(32.0),
         child: Center(
@@ -121,18 +190,14 @@ class _FlashlightScreenState extends State<FlashlightScreen> {
             children: [
               IconButton(
                 icon: Icon(
-                  isFlashlightOn == false ? Icons.flashlight_off_outlined : Icons.flashlight_on,
-                  color: isFlashlightOn == false ? Colors.white : Colors.blue,
+                  isFlashlightOn == false
+                      ? Icons.flashlight_off_outlined
+                      : Icons.flashlight_on,
+                  color:
+                      isFlashlightOn == false ? Colors.white : Colors.blue,
                   size: 300,
                 ),
-                onPressed: () {
-                  setState(() {
-                    isFlashlightOn = !isFlashlightOn;
-                    background = Colors.white;
-                    active_state = Colors.black;
-                    _sendBluetoothMessage(isFlashlightOn ? '1' : '0');
-                  });
-                },
+                onPressed: _toggleFlashlight,
                 color: Colors.white,
               ),
               Text(

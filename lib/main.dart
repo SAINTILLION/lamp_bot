@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:lamp_bot/presentation/linear_gradient.dart';
 import 'package:lamp_bot/presentation/login_screen.dart';
 
 void main() {
