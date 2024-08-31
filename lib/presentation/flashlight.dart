@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
@@ -18,6 +19,8 @@ class _FlashlightScreenState extends State<FlashlightScreen> {
   BluetoothDevice? device;
   BluetoothCharacteristic? characteristic;
   bool isConnected = false;
+  List<ScanResult> scanResults = [];
+  bool isScanning = false;
 
   @override
   void initState() {
@@ -49,25 +52,78 @@ class _FlashlightScreenState extends State<FlashlightScreen> {
   Future<void> _initBluetooth() async {
     FlutterBluePlus.adapterState.listen((state) {
       if (state == BluetoothAdapterState.on) {
-        _scanAndConnect();
+        _startScan();
       }
     });
 
-    if (await FlutterBluePlus.isSupported) {
+    if (await FlutterBluePlus.isAvailable) {
       await FlutterBluePlus.turnOn();
     }
   }
 
-  Future<void> _scanAndConnect() async {
-    await FlutterBluePlus.startScan(timeout: const Duration(seconds: 5));
-    FlutterBluePlus.scanResults.listen((results) {
-      for (ScanResult r in results) {
-        if (r.device.platformName == 'Lightbulb System') {
-          _connectToDevice(r.device);
-          break;
-        }
-      }
+  Future<void> _startScan() async {
+    setState(() {
+      isScanning = true;
+      scanResults.clear();
     });
+
+    try {
+      await FlutterBluePlus.startScan(timeout: const Duration(seconds: 4));
+      FlutterBluePlus.scanResults.listen((results) {
+        setState(() {
+          scanResults = results;
+        });
+      });
+    } finally {
+      setState(() {
+        isScanning = false;
+      });
+    }
+  }
+
+  void _showDeviceSelectionDialog() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Select a Bluetooth Device'),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: ListView.builder(
+              itemCount: scanResults.length,
+              itemBuilder: (context, index) {
+                final result = scanResults[index];
+                return ListTile(
+                  title: Text(result.device.name.isNotEmpty
+                      ? result.device.name
+                      : 'Unknown Device'),
+                  subtitle: Text(result.device.id.id),
+                  onTap: () {
+                    Navigator.pop(context);
+                    _connectToDevice(result.device);
+                  },
+                );
+              },
+            ),
+          ),
+          actions: [
+            TextButton(
+              child: const Text('Cancel'),
+              onPressed: () {
+                Navigator.pop(context);
+              },
+            ),
+            TextButton(
+              child: const Text('Rescan'),
+              onPressed: () {
+                Navigator.pop(context);
+                _startScan().then((_) => _showDeviceSelectionDialog());
+              },
+            ),
+          ],
+        );
+      },
+    );
   }
 
   Future<void> _connectToDevice(BluetoothDevice device) async {
@@ -76,15 +132,15 @@ class _FlashlightScreenState extends State<FlashlightScreen> {
       setState(() {
         this.device = device;
         isConnected = true;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Connected to the Lightbulb System.')),
-        );
-
       });
       _discoverServices();
-    } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('An issue has occurred')),
+        SnackBar(content: Text('Connected to ${device.name}')),
+      );
+    } catch (e) {
+      print('Error connecting to device: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to connect to ${device.name}')),
       );
     }
   }
@@ -93,8 +149,18 @@ class _FlashlightScreenState extends State<FlashlightScreen> {
     List<BluetoothService> services = await device!.discoverServices();
     for (BluetoothService service in services) {
       for (BluetoothCharacteristic c in service.characteristics) {
-        if (c.properties.write) {
+        if (c.properties.write && c.properties.notify) {
           characteristic = c;
+          await c.setNotifyValue(true);
+          c.value.listen((value) {
+            if (value.isNotEmpty) {
+              String response = String.fromCharCodes(value);
+              print('Received: $response');
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text(response)),
+              );
+            }
+          });
           break;
         }
       }
@@ -110,7 +176,7 @@ class _FlashlightScreenState extends State<FlashlightScreen> {
       });
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Not connected to the Lightbulb System.')),
+        const SnackBar(content: Text('Not connected to a Lightbulb System.')),
       );
     }
   }
@@ -149,7 +215,7 @@ class _FlashlightScreenState extends State<FlashlightScreen> {
       }
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Not connected to the Lightbulb System.')),
+        const SnackBar(content: Text('Not connected to a Lightbulb System.')),
       );
     }
   }
@@ -165,10 +231,6 @@ class _FlashlightScreenState extends State<FlashlightScreen> {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(
-                (isConnected == true) ? "Lightbulb System conncected" : "Lightbulb System not connected",
-                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)
-              ),
               InkWell(
                 onTap: _handleMicTap,
                 child: AvatarGlow(
@@ -194,8 +256,10 @@ class _FlashlightScreenState extends State<FlashlightScreen> {
               ),
               const SizedBox(width: 10),
               IconButton(
-                icon: const Icon(Icons.refresh),
-                onPressed: _scanAndConnect,
+                icon: const Icon(Icons.bluetooth_searching, size: 30),
+                onPressed: () {
+                  _startScan().then((_) => _showDeviceSelectionDialog());
+                },
               ),
             ],
           ),
@@ -225,6 +289,14 @@ class _FlashlightScreenState extends State<FlashlightScreen> {
                   color: isFlashlightOn ? Colors.black : Colors.white,
                   fontSize: 24,
                   fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 20),
+              Text(
+                isConnected ? "Connected to: ${device?.platformName ?? 'Unknown Device'}" : "Not connected",
+                style: TextStyle(
+                  color: isFlashlightOn ? Colors.black : Colors.white,
+                  fontSize: 18,
                 ),
               ),
             ],
