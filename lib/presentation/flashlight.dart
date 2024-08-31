@@ -91,7 +91,7 @@ class _FlashlightScreenState extends State<FlashlightScreen> {
           ),
         );
         connection.input?.listen((Uint8List data) {
-          print('Data incoming: ${ascii.decode(data)}');
+    
         }).onDone(() {
           setState(() {
             isConnected = false;
@@ -115,39 +115,56 @@ class _FlashlightScreenState extends State<FlashlightScreen> {
   }
 
   void _toggleFlashlight() {
-    setState(() {
-      isFlashlightOn = !isFlashlightOn;
-      _sendBluetoothMessage(isFlashlightOn ? '1' : '0');
-    });
-  }
-
-  void _handleMicTap() async {
-    setState(() {
-      isMicOn = !isMicOn;
-    });
-
-    if (isMicOn) {
-      bool available = await _speech.initialize();
-      if (available) {
-        _speech.listen(onResult: (result) {
-          if (result.recognizedWords.toLowerCase() == 'on') {
-            setState(() {
-              isFlashlightOn = true;
-              _sendBluetoothMessage('1');
-            });
-          } else if (result.recognizedWords.toLowerCase() == 'off') {
-            setState(() {
-              isFlashlightOn = false;
-              _sendBluetoothMessage('0');
-            });
-          }
-        });
-      }
+    if (isConnected && device?.name == 'Lightbulb Systemm') {
+      setState(() {
+        isFlashlightOn = !isFlashlightOn;
+        _sendBluetoothMessage(isFlashlightOn ? '1' : '0');
+      });
     } else {
-      _speech.stop();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Not connected to the Lightbulb Systemm.'),
+        ),
+      );
     }
   }
 
+  void _handleMicTap() async {
+    if (isConnected && device?.name == 'Lightbulb Systemm') {
+      setState(() {
+        isMicOn = !isMicOn;
+      });
+
+      if (isMicOn) {
+        bool available = await _speech.initialize();
+        if (available) {
+          _speech.listen(onResult: (result) {
+            if (result.recognizedWords.toLowerCase() == 'on') {
+              setState(() {
+                isFlashlightOn = true;
+                _sendBluetoothMessage('1');
+              });
+            } else if (result.recognizedWords.toLowerCase() == 'off') {
+              setState(() {
+                isFlashlightOn = false;
+                _sendBluetoothMessage('0');
+              });
+            }
+          });
+        }
+      } else {
+        _speech.stop();
+      }
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Not connected to the Lightbulb Systemm.'),
+        ),
+      );
+    }
+  }
+
+  
   @override
   Widget build(BuildContext context) {
     return Scaffold(
