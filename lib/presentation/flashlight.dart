@@ -89,15 +89,21 @@ class _FlashlightScreenState extends State<FlashlightScreen> {
           title: const Text('Select a Bluetooth Device'),
           content: SizedBox(
             width: double.maxFinite,
+            height: MediaQuery.of(context).size.height * 0.4,
             child: ListView.builder(
               itemCount: scanResults.length,
               itemBuilder: (context, index) {
                 final result = scanResults[index];
                 return ListTile(
-                  title: Text(result.device.name.isNotEmpty
-                      ? result.device.name
-                      : 'Unknown Device'),
-                  subtitle: Text(result.device.id.id),
+                  title: Text(result.device.platformName.isNotEmpty
+                      ? result.device.platformName
+                      : 'Unknown Device',
+                      style: const TextStyle(color: Colors.black),
+                      ),
+                  subtitle: Text(
+                    result.device.remoteId.str,
+                    style: const TextStyle(color: Colors.black),
+                    ),
                   onTap: () {
                     Navigator.pop(context);
                     _connectToDevice(result.device);
