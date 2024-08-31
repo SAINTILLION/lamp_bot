@@ -1,149 +1,131 @@
-import 'package:avatar_glow/avatar_glow.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
-import 'package:flutter_bluetooth_serial/flutter_bluetooth_serial.dart';
 import 'package:permission_handler/permission_handler.dart';
-import 'dart:convert';
-import 'dart:typed_data';
+import 'package:avatar_glow/avatar_glow.dart';
 
 class FlashlightScreen extends StatefulWidget {
-  const FlashlightScreen({super.key});
+  const FlashlightScreen({Key? key}) : super(key: key);
 
   @override
   State<FlashlightScreen> createState() => _FlashlightScreenState();
 }
 
 class _FlashlightScreenState extends State<FlashlightScreen> {
-  bool isFlashlightOn = false; // This means the light is off
+  bool isFlashlightOn = false;
   late stt.SpeechToText _speech;
   bool isMicOn = false;
-  BluetoothConnection? connection;
+  BluetoothDevice? device;
+  BluetoothCharacteristic? characteristic;
   bool isConnected = false;
-  BluetoothDevice? device; // Store the Bluetooth device
 
   @override
   void initState() {
     super.initState();
     _speech = stt.SpeechToText();
-    _requestBluetoothPermissions(); // Request permissions at runtime
+    _requestPermissions();
   }
 
-  Future<void> _requestBluetoothPermissions() async {
-    // Requesting Bluetooth permissions
-    if (await Permission.bluetooth.isDenied) {
-      await Permission.bluetooth.request();
-    }
+  Future<void> _requestPermissions() async {
+    await [
+      Permission.bluetooth,
+      Permission.bluetoothScan,
+      Permission.bluetoothConnect,
+      Permission.location,
+    ].request();
 
-    if (await Permission.bluetoothScan.isDenied) {
-      await Permission.bluetoothScan.request();
-    }
-
-    if (await Permission.bluetoothConnect.isDenied) {
-      await Permission.bluetoothConnect.request();
-    }
-
-    if (await Permission.location.isDenied) {
-      await Permission.location.request();
-    }
-
-    // After permissions are granted, attempt to connect to Bluetooth
     if (await Permission.bluetooth.isGranted &&
         await Permission.bluetoothScan.isGranted &&
         await Permission.bluetoothConnect.isGranted &&
         await Permission.location.isGranted) {
-      _connectToBluetooth();
+      _initBluetooth();
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Bluetooth and Location permissions are required.'),
-        ),
+        const SnackBar(content: Text('Bluetooth and Location permissions are required.')),
       );
     }
   }
 
-  Future<void> _connectToBluetooth() async {
-    // Find the device to connect to
-    List<BluetoothDevice> devices =
-        await FlutterBluetoothSerial.instance.getBondedDevices();
-    device = devices.firstWhere(
-        (d) => d.name == 'Lightbulb Systemm',
-        orElse: () => devices.first);
+  Future<void> _initBluetooth() async {
+    FlutterBluePlus.adapterState.listen((state) {
+      if (state == BluetoothAdapterState.on) {
+        _scanAndConnect();
+      }
+    });
 
-    if (device == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Device not found, switch on bluetooth and refresh'),
-        ),
-      );
-      return;
+    if (await FlutterBluePlus.isSupported) {
+      await FlutterBluePlus.turnOn();
     }
+  }
 
+  Future<void> _scanAndConnect() async {
+    await FlutterBluePlus.startScan(timeout: const Duration(seconds: 5));
+    FlutterBluePlus.scanResults.listen((results) {
+      for (ScanResult r in results) {
+        if (r.device.platformName == 'Lightbulb System') {
+          _connectToDevice(r.device);
+          break;
+        }
+      }
+    });
+  }
+
+  Future<void> _connectToDevice(BluetoothDevice device) async {
     try {
-      BluetoothConnection.toAddress(device!.address).then((connection) {
-        this.connection = connection;
-        
-        setState(() {
-          isConnected = true;
-        });
+      await device.connect();
+      setState(() {
+        this.device = device;
+        isConnected = true;
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Successfully connected to the Lightbulb Systemm!'),
-          ),
+          const SnackBar(content: Text('Connected to the Lightbulb System.')),
         );
-        connection.input?.listen((Uint8List data) {
-    
-        }).onDone(() {
-          setState(() {
-            isConnected = false;
-          });
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-            content: Text('Disconnected from the Lightbulb Systemm.'),
-        ),
-      );
-        });
+
       });
+      _discoverServices();
     } catch (e) {
-      print('Error connecting to device: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('An issue has occurred')),
+      );
     }
   }
 
-  void _sendBluetoothMessage(String message) {
-    if (isConnected && connection != null) {
-      connection!.output.add(Uint8List.fromList(utf8.encode(message)));
+  Future<void> _discoverServices() async {
+    List<BluetoothService> services = await device!.discoverServices();
+    for (BluetoothService service in services) {
+      for (BluetoothCharacteristic c in service.characteristics) {
+        if (c.properties.write) {
+          characteristic = c;
+          break;
+        }
+      }
+      if (characteristic != null) break;
     }
   }
 
   void _toggleFlashlight() {
-    if (isConnected && device?.name == 'Lightbulb System') {
+    if (isConnected && characteristic != null) {
       setState(() {
         isFlashlightOn = !isFlashlightOn;
-        _sendBluetoothMessage(isFlashlightOn ? '1' : '0');
+        _writeCharacteristic(isFlashlightOn ? '1' : '0');
       });
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Connected to the Lightbulb System.'),
-        ),
-      );
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Not connected to the Lightbulb System.'),
-        ),
+        const SnackBar(content: Text('Not connected to the Lightbulb System.')),
       );
     }
   }
 
+  Future<void> _writeCharacteristic(String value) async {
+    if (characteristic != null) {
+      await characteristic!.write(value.codeUnits);
+    }
+  }
+
   void _handleMicTap() async {
-    if (isConnected && device?.name == 'Lightbulb System') {
+    if (isConnected && characteristic != null) {
       setState(() {
         isMicOn = !isMicOn;
       });
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Connected to the Lightbulb System.'),
-        ),
-      );
 
       if (isMicOn) {
         bool available = await _speech.initialize();
@@ -152,12 +134,12 @@ class _FlashlightScreenState extends State<FlashlightScreen> {
             if (result.recognizedWords.toLowerCase() == 'on') {
               setState(() {
                 isFlashlightOn = true;
-                _sendBluetoothMessage('1');
+                _writeCharacteristic('1');
               });
             } else if (result.recognizedWords.toLowerCase() == 'off') {
               setState(() {
                 isFlashlightOn = false;
-                _sendBluetoothMessage('0');
+                _writeCharacteristic('0');
               });
             }
           });
@@ -167,14 +149,11 @@ class _FlashlightScreenState extends State<FlashlightScreen> {
       }
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Not connected to the Lightbulb System.'),
-        ),
+        const SnackBar(content: Text('Not connected to the Lightbulb System.')),
       );
     }
   }
 
-  
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -186,11 +165,14 @@ class _FlashlightScreenState extends State<FlashlightScreen> {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
+              Text(
+                (isConnected == true) ? "Lightbulb System conncected" : "Lightbulb System not connected",
+                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)
+              ),
               InkWell(
                 onTap: _handleMicTap,
                 child: AvatarGlow(
-                  glowColor:
-                      isFlashlightOn == false ? Colors.white : Colors.black,
+                  glowColor: isFlashlightOn ? Colors.black : Colors.white,
                   glowShape: BoxShape.circle,
                   glowRadiusFactor: 3,
                   animate: isMicOn,
@@ -202,39 +184,27 @@ class _FlashlightScreenState extends State<FlashlightScreen> {
                       color: Colors.blue,
                       shape: BoxShape.circle,
                       border: Border.all(
-                        color: isFlashlightOn == false
-                            ? Colors.white
-                            : Colors.black,
+                        color: isFlashlightOn ? Colors.black : Colors.white,
                         width: 2.0,
                       ),
                     ),
-                    child: const Icon(
-                      Icons.mic,
-                      size: 50,
-                    ),
+                    child: const Icon(Icons.mic, size: 50),
                   ),
                 ),
               ),
               const SizedBox(width: 10),
               IconButton(
                 icon: const Icon(Icons.refresh),
-                onPressed: () {
-                  setState(() {
-                    _requestBluetoothPermissions();
-                  });
-                },
+                onPressed: _scanAndConnect,
               ),
             ],
           ),
         ),
         automaticallyImplyLeading: false,
-        backgroundColor:
-            isFlashlightOn == false ? Colors.black : Colors.white,
-        foregroundColor:
-            isFlashlightOn == false ? Colors.white : Colors.black,
+        backgroundColor: isFlashlightOn ? Colors.white : Colors.black,
+        foregroundColor: isFlashlightOn ? Colors.black : Colors.white,
       ),
-      backgroundColor:
-          isFlashlightOn == false ? Colors.black : Colors.white,
+      backgroundColor: isFlashlightOn ? Colors.white : Colors.black,
       body: Padding(
         padding: const EdgeInsets.all(32.0),
         child: Center(
@@ -243,20 +213,16 @@ class _FlashlightScreenState extends State<FlashlightScreen> {
             children: [
               IconButton(
                 icon: Icon(
-                  isFlashlightOn == false
-                      ? Icons.flashlight_off_outlined
-                      : Icons.flashlight_on,
-                  color:
-                      isFlashlightOn == false ? Colors.white : Colors.blue,
+                  isFlashlightOn ? Icons.flashlight_on : Icons.flashlight_off_outlined,
+                  color: isFlashlightOn ? Colors.blue : Colors.white,
                   size: 300,
                 ),
                 onPressed: _toggleFlashlight,
-                color: Colors.white,
               ),
               Text(
-                isFlashlightOn == false ? "Tap to on-light" : "Tap to off-light",
+                isFlashlightOn ? "Tap to off-light" : "Tap to on-light",
                 style: TextStyle(
-                  color: isFlashlightOn == false ? Colors.white : Colors.black,
+                  color: isFlashlightOn ? Colors.black : Colors.white,
                   fontSize: 24,
                   fontWeight: FontWeight.bold,
                 ),
@@ -270,9 +236,8 @@ class _FlashlightScreenState extends State<FlashlightScreen> {
 
   @override
   void dispose() {
-    if (isConnected) {
-      connection?.close();
-    }
+    FlutterBluePlus.stopScan();
+    device?.disconnect();
     super.dispose();
   }
 }
