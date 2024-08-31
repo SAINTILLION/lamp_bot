@@ -115,25 +115,35 @@ class _FlashlightScreenState extends State<FlashlightScreen> {
   }
 
   void _toggleFlashlight() {
-    if (isConnected && device?.name == 'Lightbulb Systemm') {
+    if (isConnected && device?.name == 'Lightbulb System') {
       setState(() {
         isFlashlightOn = !isFlashlightOn;
         _sendBluetoothMessage(isFlashlightOn ? '1' : '0');
       });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Connected to the Lightbulb System.'),
+        ),
+      );
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Not connected to the Lightbulb Systemm.'),
+          content: Text('Not connected to the Lightbulb System.'),
         ),
       );
     }
   }
 
   void _handleMicTap() async {
-    if (isConnected && device?.name == 'Lightbulb Systemm') {
+    if (isConnected && device?.name == 'Lightbulb System') {
       setState(() {
         isMicOn = !isMicOn;
       });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Connected to the Lightbulb System.'),
+        ),
+      );
 
       if (isMicOn) {
         bool available = await _speech.initialize();
@@ -158,7 +168,7 @@ class _FlashlightScreenState extends State<FlashlightScreen> {
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Not connected to the Lightbulb Systemm.'),
+          content: Text('Not connected to the Lightbulb System.'),
         ),
       );
     }
