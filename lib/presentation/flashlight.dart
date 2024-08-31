@@ -16,7 +16,6 @@ class FlashlightScreen extends StatefulWidget {
 class _FlashlightScreenState extends State<FlashlightScreen> {
   bool isFlashlightOn = false; // This means the light is off
   late stt.SpeechToText _speech;
-  bool _isListening = false;
   bool isMicOn = false;
   BluetoothConnection? connection;
   bool isConnected = false;
@@ -73,7 +72,7 @@ class _FlashlightScreenState extends State<FlashlightScreen> {
     if (device == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Device not found.'),
+          content: Text('Device not found, switch on bluetooth and refresh'),
         ),
       );
       return;
@@ -81,17 +80,27 @@ class _FlashlightScreenState extends State<FlashlightScreen> {
 
     try {
       BluetoothConnection.toAddress(device!.address).then((connection) {
-        print('Connected to the device');
         this.connection = connection;
-        isConnected = true;
-        setState(() {});
+        
+        setState(() {
+          isConnected = true;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Successfully connected to the Lightbulb Systemm!'),
+          ),
+        );
         connection.input?.listen((Uint8List data) {
           print('Data incoming: ${ascii.decode(data)}');
         }).onDone(() {
-          print('Disconnected by remote request');
           setState(() {
             isConnected = false;
           });
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+            content: Text('Disconnected from the Lightbulb Systemm.'),
+        ),
+      );
         });
       });
     } catch (e) {
@@ -147,31 +156,48 @@ class _FlashlightScreenState extends State<FlashlightScreen> {
         toolbarHeight: 120,
         title: Align(
           alignment: Alignment.topRight,
-          child: InkWell(
-            onTap: _handleMicTap,
-            child: AvatarGlow(
-              glowColor: isFlashlightOn == false ? Colors.white : Colors.black,
-              glowShape: BoxShape.circle,
-              glowRadiusFactor: 3,
-              animate: isMicOn,
-              startDelay: Duration.zero,
-              duration: const Duration(milliseconds: 2000),
-              glowCount: 2,
-              child: Container(
-                decoration: BoxDecoration(
-                  color: Colors.blue,
-                  shape: BoxShape.circle,
-                  border: Border.all(
-                    color: isFlashlightOn == false ? Colors.white : Colors.black,
-                    width: 2.0,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              InkWell(
+                onTap: _handleMicTap,
+                child: AvatarGlow(
+                  glowColor:
+                      isFlashlightOn == false ? Colors.white : Colors.black,
+                  glowShape: BoxShape.circle,
+                  glowRadiusFactor: 3,
+                  animate: isMicOn,
+                  startDelay: Duration.zero,
+                  duration: const Duration(milliseconds: 2000),
+                  glowCount: 2,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: Colors.blue,
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: isFlashlightOn == false
+                            ? Colors.white
+                            : Colors.black,
+                        width: 2.0,
+                      ),
+                    ),
+                    child: const Icon(
+                      Icons.mic,
+                      size: 50,
+                    ),
                   ),
                 ),
-                child: const Icon(
-                  Icons.mic,
-                  size: 50,
-                ),
               ),
-            ),
+              const SizedBox(width: 10),
+              IconButton(
+                icon: const Icon(Icons.refresh),
+                onPressed: () {
+                  setState(() {
+                    _requestBluetoothPermissions();
+                  });
+                },
+              ),
+            ],
           ),
         ),
         automaticallyImplyLeading: false,
